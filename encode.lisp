@@ -72,6 +72,17 @@
           (fast-write-byte (+ (length octets) 128) buffer)
           (fast-write-sequence octets buffer)))))
 
+(defun integer-to-octets (value)
+  (if (< value 0)
+    (error "Can't encode negative number ~S" value))
+  (let ((octets (ironclad:integer-to-octets value)))
+    (if (eq (logand 128 (aref octets 0)) 128)
+      (let ((new-array (make-array (1+ (length octets)) :element-type '(unsigned-byte 8))))
+        (setf (aref new-array 0) 0)
+        (replace new-array octets :start1 1)
+        new-array)
+      octets)))
+
 (defun write-block (asn1 buffer)
   (check-type asn1 cons)
   (let* ((is-component (consp (cdr asn1)))
@@ -94,7 +105,7 @@
              buffer)
             (fast-write-sequence data buffer))
           (let ((data (case tag
-                        (:integer (ironclad:integer-to-octets (cdr asn1)))
+                        (:integer (integer-to-octets (cdr asn1)))
                         (:sequence)
                         (:bit-string
                          (let ((res (make-array (1+ (length (cdr asn1)))
